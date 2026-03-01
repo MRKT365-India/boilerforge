@@ -68,7 +68,7 @@ describe("saas-starter", () => {
     );
   });
 
-  it("prisma schema includes User model", () => {
+  it("prisma schema includes required models", () => {
     const schema = fs.readFileSync(
       path.join(dir, "prisma", "schema.prisma"),
       "utf-8"
@@ -76,6 +76,8 @@ describe("saas-starter", () => {
     expect(schema).toContain("model User");
     expect(schema).toContain("model Organization");
     expect(schema).toContain("model Subscription");
+    expect(schema).toContain("model Plan");
+    expect(schema).toContain("model Order");
   });
 
   it(".env.example includes required variables", () => {
@@ -91,12 +93,13 @@ describe("saas-starter", () => {
 describe("nextjs-saas", () => {
   const dir = path.join(BOILERPLATES_DIR, "nextjs-saas");
 
-  it("has package.json with Next.js", () => {
+  it("has package.json with Next.js and required dependencies", () => {
     const pkg = JSON.parse(
       fs.readFileSync(path.join(dir, "package.json"), "utf-8")
     );
     expect(pkg.dependencies.next).toBeDefined();
     expect(pkg.dependencies["next-auth"]).toBeDefined();
+    expect(pkg.dependencies["@next-auth/prisma-adapter"]).toBeDefined();
     expect(pkg.dependencies.razorpay).toBeDefined();
   });
 
@@ -202,6 +205,22 @@ describe("react-native", () => {
     expect(fs.existsSync(path.join(dir, "src", "app", "_layout.tsx"))).toBe(
       true
     );
+  });
+});
+
+describe("ci-cd", () => {
+  const dir = path.join(BOILERPLATES_DIR, "ci-cd");
+
+  it("has all workflow files referenced in README", () => {
+    expect(
+      fs.existsSync(path.join(dir, ".github", "workflows", "ci.yml"))
+    ).toBe(true);
+    expect(
+      fs.existsSync(path.join(dir, ".github", "workflows", "deploy.yml"))
+    ).toBe(true);
+    expect(
+      fs.existsSync(path.join(dir, ".github", "workflows", "release.yml"))
+    ).toBe(true);
   });
 });
 

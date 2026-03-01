@@ -28,6 +28,7 @@
     "access": "public"
   },
   "keywords": ["mcp", "boilerplate", "ai-agent", "claude-code", "cursor", "scaffold", "starter", "template"],
+  "author": "mrkt365",
   "license": "MIT",
   "repository": {
     "type": "git",

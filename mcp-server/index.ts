@@ -51,6 +51,9 @@ function getBoilerplates(): string[] {
 }
 
 function validateBoilerplateName(name: string): string {
+  if (!name || !name.trim()) {
+    throw new Error("Boilerplate name is required");
+  }
   const sanitized = path.basename(name);
   if (sanitized !== name || sanitized.includes("..")) {
     throw new Error(`Invalid boilerplate name: ${name}`);
@@ -71,7 +74,10 @@ function getBoilerplateFiles(name: string): Record<string, string> {
     for (const entry of fs.readdirSync(current)) {
       const full = path.join(current, entry);
       const relPath = rel ? `${rel}/${entry}` : entry;
-      if (fs.statSync(full).isDirectory()) {
+      const stat = fs.lstatSync(full);
+      // Skip symlinks to prevent escaping the boilerplates directory
+      if (stat.isSymbolicLink()) continue;
+      if (stat.isDirectory()) {
         walk(full, relPath);
       } else {
         files[relPath] = fs.readFileSync(full, "utf-8");
@@ -197,7 +203,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
       const files = getBoilerplateFiles(boilerplate);
       for (const [relPath, content] of Object.entries(files)) {
-        const fullPath = path.join(targetPath, relPath);
+        const fullPath = path.resolve(targetPath, relPath);
+        // Ensure the resolved path stays within the target directory
+        if (!fullPath.startsWith(targetPath + path.sep) && fullPath !== targetPath) {
+          continue;
+        }
         fs.mkdirSync(path.dirname(fullPath), { recursive: true });
         fs.writeFileSync(fullPath, content);
       }

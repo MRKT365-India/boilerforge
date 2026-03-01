@@ -18,6 +18,7 @@
     "prisma": "^5.0.0",
     "@prisma/client": "^5.0.0",
     "next-auth": "^4.24.0",
+    "@next-auth/prisma-adapter": "^1.0.7",
     "razorpay": "^2.9.0",
     "resend": "^3.0.0",
     "@radix-ui/react-slot": "^1.0.0",

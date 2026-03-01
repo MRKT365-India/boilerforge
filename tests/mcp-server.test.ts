@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, afterAll } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -12,6 +12,9 @@ function getBoilerplates(): string[] {
 }
 
 function validateBoilerplateName(name: string): string {
+  if (!name || !name.trim()) {
+    throw new Error("Boilerplate name is required");
+  }
   const sanitized = path.basename(name);
   if (sanitized !== name || sanitized.includes("..")) {
     throw new Error(`Invalid boilerplate name: ${name}`);
@@ -32,7 +35,9 @@ function getBoilerplateFiles(name: string): Record<string, string> {
     for (const entry of fs.readdirSync(current)) {
       const full = path.join(current, entry);
       const relPath = rel ? `${rel}/${entry}` : entry;
-      if (fs.statSync(full).isDirectory()) {
+      const stat = fs.lstatSync(full);
+      if (stat.isSymbolicLink()) continue;
+      if (stat.isDirectory()) {
         walk(full, relPath);
       } else {
         files[relPath] = fs.readFileSync(full, "utf-8");
@@ -91,6 +96,11 @@ describe("get_boilerplate", () => {
     );
   });
 
+  it("rejects empty boilerplate name", () => {
+    expect(() => getBoilerplateFiles("")).toThrow("Boilerplate name is required");
+    expect(() => getBoilerplateFiles("   ")).toThrow("Boilerplate name is required");
+  });
+
   it("returns all files recursively", () => {
     const files = getBoilerplateFiles("react-native");
     const paths = Object.keys(files);
@@ -101,7 +111,7 @@ describe("get_boilerplate", () => {
 describe("scaffold_project", () => {
   const tmpDir = path.resolve(__dirname, "../.test-scaffold-output");
 
-  beforeAll(() => {
+  afterAll(() => {
     if (fs.existsSync(tmpDir)) {
       fs.rmSync(tmpDir, { recursive: true });
     }

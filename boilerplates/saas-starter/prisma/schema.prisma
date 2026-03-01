@@ -8,41 +8,73 @@ datasource db {
 }
 
 model User {
-  id             String         @id @default(cuid())
-  email          String         @unique
+  id             String        @id @default(cuid())
+  email          String        @unique
   passwordHash   String
   name           String?
-  role           Role           @default(MEMBER)
+  role           Role          @default(MEMBER)
   organizationId String?
-  organization   Organization?  @relation(fields: [organizationId], references: [id])
-  subscriptions  Subscription[]
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([organizationId])
 }
 
 model Organization {
+  id                 String         @id @default(cuid())
+  name               String
+  slug               String         @unique
+  planId             String?
+  plan               Plan?          @relation(fields: [planId], references: [id])
+  subscriptionActive Boolean        @default(false)
+  members            User[]
+  orders             Order[]
+  subscriptions      Subscription[]
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+}
+
+model Plan {
   id            String         @id @default(cuid())
   name          String
-  slug          String         @unique
-  members       User[]
-  subscriptions Subscription[]
+  priceInPaise  Int
+  interval      String         @default("monthly")
+  organizations Organization[]
+  orders        Order[]
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 }
 
+model Order {
+  id                String       @id @default(cuid())
+  razorpayOrderId   String       @unique
+  razorpayPaymentId String?
+  organizationId    String
+  organization      Organization @relation(fields: [organizationId], references: [id])
+  planId            String
+  plan              Plan         @relation(fields: [planId], references: [id])
+  amount            Int
+  status            String       @default("created")
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  @@index([organizationId])
+}
+
 model Subscription {
   id               String        @id @default(cuid())
-  plan             Plan          @default(FREE)
+  tier             PlanTier      @default(FREE)
   status           SubStatus     @default(ACTIVE)
   razorpayOrderId  String?
   razorpaySubId    String?
-  userId           String
-  user             User          @relation(fields: [userId], references: [id])
-  organizationId   String?
-  organization     Organization? @relation(fields: [organizationId], references: [id])
+  organizationId   String
+  organization     Organization  @relation(fields: [organizationId], references: [id])
   currentPeriodEnd DateTime?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
+
+  @@index([organizationId])
 }
 
 enum Role {
@@ -51,7 +83,7 @@ enum Role {
   MEMBER
 }
 
-enum Plan {
+enum PlanTier {
   FREE
   PRO
   ENTERPRISE

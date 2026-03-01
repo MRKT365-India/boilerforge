@@ -12,9 +12,9 @@ export const billingRouter = Router();
 
 // Create a subscription order
 billingRouter.post("/create-order", async (req: Request, res: Response) => {
-  const { planId, orgId } = req.body;
-  if (!planId || !orgId) {
-    return res.status(400).json({ error: "planId and orgId are required" });
+  const { planId, organizationId } = req.body;
+  if (!planId || !organizationId) {
+    return res.status(400).json({ error: "planId and organizationId are required" });
   }
 
   const plan = await prisma.plan.findUnique({ where: { id: planId } });
@@ -25,14 +25,14 @@ billingRouter.post("/create-order", async (req: Request, res: Response) => {
   const order = await razorpay.orders.create({
     amount: plan.priceInPaise,
     currency: "INR",
-    receipt: `order_${orgId}_${Date.now()}`,
-    notes: { orgId, planId },
+    receipt: `order_${organizationId}_${Date.now()}`,
+    notes: { organizationId, planId },
   });
 
   await prisma.order.create({
     data: {
       razorpayOrderId: order.id,
-      orgId,
+      organizationId,
       planId,
       amount: plan.priceInPaise,
       status: "created",
@@ -60,7 +60,7 @@ billingRouter.post("/verify-payment", async (req: Request, res: Response) => {
     .update(`${razorpay_order_id}|${razorpay_payment_id}`)
     .digest("hex");
 
-  if (expectedSig !== razorpay_signature) {
+  if (!crypto.timingSafeEqual(Buffer.from(expectedSig), Buffer.from(razorpay_signature))) {
     return res.status(400).json({ error: "Invalid payment signature" });
   }
 
@@ -73,8 +73,8 @@ billingRouter.post("/verify-payment", async (req: Request, res: Response) => {
   });
 
   // Activate the subscription for the org
-  await prisma.org.update({
-    where: { id: order.orgId },
+  await prisma.organization.update({
+    where: { id: order.organizationId },
     data: { planId: order.planId, subscriptionActive: true },
   });
 
@@ -86,12 +86,16 @@ billingRouter.post("/webhook", async (req: Request, res: Response) => {
   const secret = process.env.RAZORPAY_WEBHOOK_SECRET || "";
   const signature = req.headers["x-razorpay-signature"] as string;
 
+  if (!signature) {
+    return res.status(400).json({ error: "Missing webhook signature" });
+  }
+
   const expectedSig = crypto
     .createHmac("sha256", secret)
     .update(JSON.stringify(req.body))
     .digest("hex");
 
-  if (expectedSig !== signature) {
+  if (!crypto.timingSafeEqual(Buffer.from(expectedSig), Buffer.from(signature))) {
     return res.status(400).json({ error: "Invalid webhook signature" });
   }
 

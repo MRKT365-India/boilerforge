@@ -14,7 +14,7 @@ warn()  { echo -e "${YELLOW}[boilerforge]${NC} $*"; }
 
 MCP_ENTRY='{
   "command": "npx",
-  "args": ["-y", "boilerforge"],
+  "args": ["-y", "@cometforge/boilerforge"],
   "type": "stdio"
 }'
 
@@ -57,7 +57,11 @@ EOF
     local entry
     entry=$(printf '    "boilerforge": %s,' "$MCP_ENTRY" | tr '\n' ' ')
     if grep -q '"mcpServers"' "$config_file"; then
-      sed -i "s/\"mcpServers\": {/\"mcpServers\": {\n${entry}/" "$config_file"
+      # Use a temp file for cross-platform sed compatibility (macOS + Linux)
+      local tmp_sed
+      tmp_sed="$(mktemp)"
+      sed "s/\"mcpServers\": {/\"mcpServers\": {\n${entry}/" "$config_file" > "$tmp_sed" \
+        && mv "$tmp_sed" "$config_file"
       ok "Added boilerforge to $config_file (install jq for cleaner merging)"
     else
       warn "Could not find mcpServers in $config_file — please add boilerforge manually"

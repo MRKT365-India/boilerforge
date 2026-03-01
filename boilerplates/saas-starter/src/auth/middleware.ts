@@ -22,12 +22,15 @@ authRouter.post("/signup", async (req: Request, res: Response) => {
   const bcrypt = await import("bcryptjs");
   const hashed = await bcrypt.hash(password, 12);
 
-  const org = await prisma.org.create({ data: { name: orgName || email.split("@")[0] } });
+  const slug = (orgName || email.split("@")[0]).toLowerCase().replace(/[^a-z0-9-]/g, "-");
+  const org = await prisma.organization.create({
+    data: { name: orgName || email.split("@")[0], slug },
+  });
   const user = await prisma.user.create({
-    data: { email, password: hashed, orgId: org.id },
+    data: { email, passwordHash: hashed, organizationId: org.id },
   });
 
-  const token = jwt.sign({ userId: user.id, orgId: org.id }, JWT_SECRET, {
+  const token = jwt.sign({ userId: user.id, organizationId: org.id }, JWT_SECRET, {
     expiresIn: TOKEN_EXPIRY,
   });
 
@@ -47,12 +50,12 @@ authRouter.post("/login", async (req: Request, res: Response) => {
   }
 
   const bcrypt = await import("bcryptjs");
-  const valid = await bcrypt.compare(password, user.password);
+  const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) {
     return res.status(401).json({ error: "Invalid credentials" });
   }
 
-  const token = jwt.sign({ userId: user.id, orgId: user.orgId }, JWT_SECRET, {
+  const token = jwt.sign({ userId: user.id, organizationId: user.organizationId }, JWT_SECRET, {
     expiresIn: TOKEN_EXPIRY,
   });
 
@@ -69,10 +72,10 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction) {
   try {
     const payload = jwt.verify(header.slice(7), JWT_SECRET) as {
       userId: string;
-      orgId: string;
+      organizationId: string;
     };
     (req as any).userId = payload.userId;
-    (req as any).orgId = payload.orgId;
+    (req as any).organizationId = payload.organizationId;
     next();
   } catch {
     return _res.status(401).json({ error: "Invalid token" });

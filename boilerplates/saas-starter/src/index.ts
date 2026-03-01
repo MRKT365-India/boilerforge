@@ -1,4 +1,6 @@
 import express from "express";
+import cors from "cors";
+import helmet from "helmet";
 import { authRouter } from "./auth/middleware";
 import { billingRouter } from "./billing/razorpay";
 import { prisma } from "./db/prisma";
@@ -6,6 +8,8 @@ import { prisma } from "./db/prisma";
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.use(helmet());
+app.use(cors());
 app.use(express.json());
 
 // Health check
@@ -27,7 +31,7 @@ app.get("/api/me", async (req, res) => {
   if (!user) {
     return res.status(404).json({ error: "User not found" });
   }
-  res.json({ id: user.id, email: user.email, orgId: user.orgId });
+  res.json({ id: user.id, email: user.email, organizationId: user.organizationId });
 });
 
 async function main() {
