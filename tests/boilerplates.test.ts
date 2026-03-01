@@ -224,6 +224,86 @@ describe("ci-cd", () => {
   });
 });
 
+describe("shopify-app", () => {
+  const dir = path.join(BOILERPLATES_DIR, "shopify-app");
+
+  it("has package.json with Shopify and Remix dependencies", () => {
+    const pkg = JSON.parse(
+      fs.readFileSync(path.join(dir, "package.json"), "utf-8")
+    );
+    expect(pkg.dependencies["@shopify/shopify-app-remix"]).toBeDefined();
+    expect(pkg.dependencies["@shopify/polaris"]).toBeDefined();
+    expect(pkg.dependencies["@remix-run/node"]).toBeDefined();
+    expect(pkg.dependencies["@prisma/client"]).toBeDefined();
+  });
+
+  it("has tsconfig.json", () => {
+    expect(fs.existsSync(path.join(dir, "tsconfig.json"))).toBe(true);
+  });
+
+  it("has .env.example with required variables", () => {
+    const env = fs.readFileSync(path.join(dir, ".env.example"), "utf-8");
+    expect(env).toContain("SHOPIFY_API_KEY");
+    expect(env).toContain("SHOPIFY_API_SECRET");
+    expect(env).toContain("SCOPES");
+    expect(env).toContain("HOST");
+    expect(env).toContain("DATABASE_URL");
+  });
+
+  it("has prisma schema with required models", () => {
+    const schema = fs.readFileSync(
+      path.join(dir, "prisma", "schema.prisma"),
+      "utf-8"
+    );
+    expect(schema).toContain("model Session");
+    expect(schema).toContain("model Shop");
+    expect(schema).toContain("model AppInstall");
+  });
+
+  it("has Remix root with AppProvider", () => {
+    const root = fs.readFileSync(path.join(dir, "app", "root.tsx"), "utf-8");
+    expect(root).toContain("AppProvider");
+  });
+
+  it("has authenticated app layout", () => {
+    const appRoute = fs.readFileSync(
+      path.join(dir, "app", "routes", "app.tsx"),
+      "utf-8"
+    );
+    expect(appRoute).toContain("authenticate.admin");
+  });
+
+  it("has dashboard home page", () => {
+    expect(
+      fs.existsSync(path.join(dir, "app", "routes", "app._index.tsx"))
+    ).toBe(true);
+  });
+
+  it("has shopify server config", () => {
+    const server = fs.readFileSync(
+      path.join(dir, "app", "shopify.server.ts"),
+      "utf-8"
+    );
+    expect(server).toContain("shopifyApp");
+    expect(server).toContain("authenticate");
+    expect(server).toContain("APP_UNINSTALLED");
+  });
+
+  it("has Prisma client singleton", () => {
+    expect(fs.existsSync(path.join(dir, "app", "db.server.ts"))).toBe(true);
+  });
+
+  it("has webhook handler", () => {
+    const webhooks = fs.readFileSync(
+      path.join(dir, "app", "routes", "webhooks.tsx"),
+      "utf-8"
+    );
+    expect(webhooks).toContain("APP_UNINSTALLED");
+    expect(webhooks).toContain("CUSTOMERS_DATA_REQUEST");
+    expect(webhooks).toContain("SHOP_REDACT");
+  });
+});
+
 describe("ai-agent-memory", () => {
   const dir = path.join(BOILERPLATES_DIR, "ai-agent-memory");
 

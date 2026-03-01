@@ -1,0 +1,68 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Required by @shopify/shopify-app-session-storage-prisma
+model Session {
+  id            String    @id
+  shop          String
+  state         String
+  isOnline      Boolean   @default(false)
+  scope         String?
+  expires       DateTime?
+  accessToken   String?
+  userId        BigInt?
+  firstName     String?
+  lastName      String?
+  email         String?
+  accountOwner  Boolean   @default(false)
+  locale        String?
+  collaborator  Boolean?  @default(false)
+
+  @@index([shop])
+}
+
+// Track installed shops and their metadata
+model Shop {
+  id              String    @id @default(cuid())
+  shopDomain      String    @unique
+  shopName        String?
+  email           String?
+  plan            String?
+  installedAt     DateTime  @default(now())
+  uninstalledAt   DateTime?
+  isActive        Boolean   @default(true)
+  accessToken     String?
+  scopes          String?
+  appInstalls     AppInstall[]
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([isActive])
+}
+
+// Track app installation history and billing
+model AppInstall {
+  id                  String    @id @default(cuid())
+  shopId              String
+  shop                Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  chargeId            String?   @unique
+  chargeName          String?
+  chargeStatus        String?
+  chargeAmount        Float?
+  activatedAt         DateTime?
+  billingInterval     String?
+  trialDays           Int       @default(0)
+  currentPeriodEnd    DateTime?
+  cancelledAt         DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([shopId])
+  @@index([chargeStatus])
+}

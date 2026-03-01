@@ -26,7 +26,7 @@ Inspired by 21st.dev for UI components — but for entire project boilerplates.
 | `whatsapp-bot` | WhatsApp Business API bot (India-focused) | Ready |
 | `ai-agent-memory` | AI agent with long-term vector memory | Ready |
 | `ci-cd` | GitHub Actions CI/CD workflows | Ready |
-| `shopify-app` | Shopify app with Next.js + Prisma + Billing | WIP |
+| `shopify-app` | Shopify app with Remix + Prisma + Polaris + Webhooks | Ready |
 
 ---
 
