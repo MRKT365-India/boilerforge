@@ -1,0 +1,15 @@
+{
+  "project": "boilerforge",
+  "description": "MCP-powered boilerplate registry for AI coding agents",
+  "agents": {
+    "preferred": ["coder", "architect", "reviewer"],
+    "topology": "hierarchical"
+  },
+  "memory": {
+    "namespace": "boilerforge",
+    "retentionDays": 90
+  },
+  "tasks": {
+    "defaultPriority": "normal"
+  }
+}

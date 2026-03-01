@@ -1,0 +1,29 @@
+{
+  "name": "boilerforge",
+  "version": "0.1.0",
+  "description": "MCP-powered boilerplate registry for AI coding agents",
+  "main": "dist/mcp-server/index.js",
+  "bin": {
+    "boilerforge": "dist/mcp-server/index.js"
+  },
+  "files": [
+    "dist/",
+    "boilerplates/"
+  ],
+  "scripts": {
+    "build": "tsc && chmod +x dist/mcp-server/index.js",
+    "dev": "ts-node mcp-server/index.ts",
+    "start": "node dist/mcp-server/index.js",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": ["mcp", "boilerplate", "ai-agent", "claude-code", "cursor"],
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "ts-node": "^10.9.0",
+    "@types/node": "^20.0.0"
+  }
+}
