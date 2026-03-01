@@ -1,5 +1,5 @@
 {
-  "name": "boilerforge",
+  "name": "@cometforge/boilerforge",
   "version": "0.1.0",
   "description": "MCP-powered boilerplate registry for AI coding agents",
   "main": "dist/mcp-server/index.js",
@@ -8,22 +8,42 @@
   },
   "files": [
     "dist/",
-    "boilerplates/"
+    "boilerplates/",
+    "scripts/",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "tsc && chmod +x dist/mcp-server/index.js",
     "dev": "ts-node mcp-server/index.ts",
     "start": "node dist/mcp-server/index.js",
-    "prepublishOnly": "npm run build"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build && npm test"
   },
-  "keywords": ["mcp", "boilerplate", "ai-agent", "claude-code", "cursor"],
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": ["mcp", "boilerplate", "ai-agent", "claude-code", "cursor", "scaffold", "starter", "template"],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mrkt365/boilerforge.git"
+  },
+  "homepage": "https://github.com/mrkt365/boilerforge#readme",
+  "bugs": {
+    "url": "https://github.com/mrkt365/boilerforge/issues"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0",
     "ts-node": "^10.9.0",
-    "@types/node": "^20.0.0"
+    "typescript": "^5.0.0",
+    "vitest": "^2.0.0"
   }
 }

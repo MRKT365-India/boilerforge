@@ -1,11 +1,36 @@
 #!/usr/bin/env node
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import {
+  CallToolRequestSchema,
+  ListToolsRequestSchema,
+} from "@modelcontextprotocol/sdk/types.js";
 import * as fs from "fs";
 import * as path from "path";
 
-const BOILERPLATES_DIR = path.resolve(__dirname, "../boilerplates");
+// Resolve boilerplates/ relative to the package root.
+// When compiled, __dirname is dist/mcp-server/, so go up two levels.
+// Also handle running via ts-node where __dirname is mcp-server/.
+function resolveBoilerplatesDir(): string {
+  // Try relative to compiled output: dist/mcp-server/ -> package root
+  const fromDist = path.resolve(__dirname, "../../boilerplates");
+  if (fs.existsSync(fromDist) && fs.statSync(fromDist).isDirectory()) {
+    return fromDist;
+  }
+  // Try relative to source: mcp-server/ -> package root
+  const fromSrc = path.resolve(__dirname, "../boilerplates");
+  if (fs.existsSync(fromSrc) && fs.statSync(fromSrc).isDirectory()) {
+    return fromSrc;
+  }
+  // Fallback: look relative to process.cwd()
+  const fromCwd = path.resolve(process.cwd(), "boilerplates");
+  if (fs.existsSync(fromCwd) && fs.statSync(fromCwd).isDirectory()) {
+    return fromCwd;
+  }
+  return fromDist;
+}
+
+const BOILERPLATES_DIR = resolveBoilerplatesDir();
 
 const server = new Server(
   { name: "boilerforge", version: "0.1.0" },
@@ -16,15 +41,20 @@ function getBoilerplates(): string[] {
   if (!fs.existsSync(BOILERPLATES_DIR)) {
     return [];
   }
-  return fs.readdirSync(BOILERPLATES_DIR).filter((f) => {
-    const full = path.join(BOILERPLATES_DIR, f);
-    return fs.statSync(full).isDirectory();
-  });
+  return fs
+    .readdirSync(BOILERPLATES_DIR)
+    .filter((f) => {
+      const full = path.join(BOILERPLATES_DIR, f);
+      return fs.statSync(full).isDirectory();
+    })
+    .sort();
 }
 
 function validateBoilerplateName(name: string): string {
-  // Prevent path traversal
   const sanitized = path.basename(name);
+  if (sanitized !== name || sanitized.includes("..")) {
+    throw new Error(`Invalid boilerplate name: ${name}`);
+  }
   const dir = path.join(BOILERPLATES_DIR, sanitized);
   if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) {
     throw new Error(`Boilerplate not found: ${sanitized}`);
@@ -77,8 +107,14 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       inputSchema: {
         type: "object" as const,
         properties: {
-          boilerplate: { type: "string" as const, description: "Boilerplate name" },
-          target: { type: "string" as const, description: "Target directory path" },
+          boilerplate: {
+            type: "string" as const,
+            description: "Boilerplate name",
+          },
+          target: {
+            type: "string" as const,
+            description: "Target directory path",
+          },
         },
         required: ["boilerplate", "target"],
       },
@@ -92,8 +128,28 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   try {
     if (name === "list_boilerplates") {
       const list = getBoilerplates();
+      const descriptions: Record<string, string> = {};
+      for (const bp of list) {
+        const readmePath = path.join(BOILERPLATES_DIR, bp, "README.md");
+        if (fs.existsSync(readmePath)) {
+          const content = fs.readFileSync(readmePath, "utf-8");
+          const firstLine = content.split("\n").find((l) => l.trim() && !l.startsWith("#"));
+          descriptions[bp] = firstLine?.trim() || bp;
+        } else {
+          descriptions[bp] = bp;
+        }
+      }
       return {
-        content: [{ type: "text", text: JSON.stringify(list, null, 2) }],
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(
+              { boilerplates: list, descriptions },
+              null,
+              2
+            ),
+          },
+        ],
       };
     }
 
@@ -101,7 +157,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const bpName = args?.name as string;
       if (!bpName) {
         return {
-          content: [{ type: "text", text: "Error: 'name' argument is required" }],
+          content: [
+            { type: "text", text: "Error: 'name' argument is required" },
+          ],
           isError: true,
         };
       }
@@ -116,11 +174,27 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const target = args?.target as string;
       if (!boilerplate || !target) {
         return {
-          content: [{ type: "text", text: "Error: 'boilerplate' and 'target' arguments are required" }],
+          content: [
+            {
+              type: "text",
+              text: "Error: 'boilerplate' and 'target' arguments are required",
+            },
+          ],
           isError: true,
         };
       }
       const targetPath = path.resolve(target);
+      if (fs.existsSync(targetPath) && fs.readdirSync(targetPath).length > 0) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Error: Target directory is not empty: ${targetPath}`,
+            },
+          ],
+          isError: true,
+        };
+      }
       const files = getBoilerplateFiles(boilerplate);
       for (const [relPath, content] of Object.entries(files)) {
         const fullPath = path.join(targetPath, relPath);
@@ -128,7 +202,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         fs.writeFileSync(fullPath, content);
       }
       return {
-        content: [{ type: "text", text: `Scaffolded ${Object.keys(files).length} files into ${targetPath}` }],
+        content: [
+          {
+            type: "text",
+            text: `Scaffolded ${Object.keys(files).length} files into ${targetPath}`,
+          },
+        ],
       };
     }
 
