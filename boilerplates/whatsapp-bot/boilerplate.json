@@ -1,0 +1,11 @@
+{
+  "name": "WhatsApp Bot Starter",
+  "description": "Production-ready WhatsApp Business API bot with Cloud API and optional Baileys support",
+  "version": "1.0.0",
+  "tags": ["whatsapp", "bot", "chatbot", "meta", "baileys", "india"],
+  "stack": ["Express", "TypeScript", "WhatsApp Cloud API", "Firebase", "Baileys"],
+  "author": "CometForge",
+  "changelog": [
+    { "version": "1.0.0", "date": "2026-03-01", "notes": "Initial release" }
+  ]
+}

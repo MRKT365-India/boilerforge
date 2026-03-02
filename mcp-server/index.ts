@@ -65,6 +65,76 @@ function validateBoilerplateName(name: string): string {
   return sanitized;
 }
 
+interface BoilerplateMetadata {
+  name: string;
+  description: string;
+  version: string;
+  tags: string[];
+  stack: string[];
+  author: string;
+  changelog: Array<{ version: string; date: string; notes: string }>;
+}
+
+function getBoilerplateMetadata(bpName: string): BoilerplateMetadata | null {
+  const metaPath = path.join(BOILERPLATES_DIR, bpName, "boilerplate.json");
+  if (fs.existsSync(metaPath)) {
+    try {
+      return JSON.parse(fs.readFileSync(metaPath, "utf-8"));
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+function searchBoilerplates(
+  query: string
+): Array<{ name: string; description: string; tags: string[] }> {
+  const q = query.toLowerCase();
+  const boilerplates = getBoilerplates();
+  const results: Array<{
+    name: string;
+    description: string;
+    tags: string[];
+  }> = [];
+
+  for (const bp of boilerplates) {
+    const meta = getBoilerplateMetadata(bp);
+    if (meta) {
+      const searchable = [meta.name, meta.description, ...meta.tags, ...meta.stack]
+        .join(" ")
+        .toLowerCase();
+      if (searchable.includes(q)) {
+        results.push({
+          name: bp,
+          description: meta.description,
+          tags: meta.tags,
+        });
+      }
+    } else {
+      // Fallback: match against folder name and README first 200 chars
+      let searchable = bp.toLowerCase();
+      const readmePath = path.join(BOILERPLATES_DIR, bp, "README.md");
+      if (fs.existsSync(readmePath)) {
+        const content = fs.readFileSync(readmePath, "utf-8").slice(0, 200);
+        searchable += " " + content.toLowerCase();
+      }
+      if (searchable.includes(q)) {
+        const firstLine = fs.existsSync(readmePath)
+          ? fs
+              .readFileSync(readmePath, "utf-8")
+              .split("\n")
+              .find((l) => l.trim() && !l.startsWith("#"))
+              ?.trim() || bp
+          : bp;
+        results.push({ name: bp, description: firstLine, tags: [] });
+      }
+    }
+  }
+
+  return results;
+}
+
 function getBoilerplateFiles(name: string): Record<string, string> {
   const sanitized = validateBoilerplateName(name);
   const dir = path.join(BOILERPLATES_DIR, sanitized);
@@ -105,6 +175,20 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           name: { type: "string" as const, description: "Boilerplate name" },
         },
         required: ["name"],
+      },
+    },
+    {
+      name: "search_boilerplates",
+      description: "Search boilerplates by name, stack, or tags",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          query: {
+            type: "string" as const,
+            description: "Search query to match against name, description, tags, and stack",
+          },
+        },
+        required: ["query"],
       },
     },
     {
@@ -170,8 +254,31 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
       const files = getBoilerplateFiles(bpName);
+      const metadata = getBoilerplateMetadata(bpName);
+      const result: { metadata: BoilerplateMetadata | null; files: Record<string, string> } = {
+        metadata,
+        files,
+      };
       return {
-        content: [{ type: "text", text: JSON.stringify(files, null, 2) }],
+        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+      };
+    }
+
+    if (name === "search_boilerplates") {
+      const query = args?.query as string;
+      if (!query) {
+        return {
+          content: [
+            { type: "text", text: "Error: 'query' argument is required" },
+          ],
+          isError: true,
+        };
+      }
+      const results = searchBoilerplates(query);
+      return {
+        content: [
+          { type: "text", text: JSON.stringify({ results }, null, 2) },
+        ],
       };
     }
 

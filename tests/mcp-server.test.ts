@@ -4,6 +4,63 @@ import * as path from "path";
 
 const BOILERPLATES_DIR = path.resolve(__dirname, "../boilerplates");
 
+interface BoilerplateMetadata {
+  name: string;
+  description: string;
+  version: string;
+  tags: string[];
+  stack: string[];
+  author: string;
+  changelog: Array<{ version: string; date: string; notes: string }>;
+}
+
+function getBoilerplateMetadata(bpName: string): BoilerplateMetadata | null {
+  const metaPath = path.join(BOILERPLATES_DIR, bpName, "boilerplate.json");
+  if (fs.existsSync(metaPath)) {
+    try {
+      return JSON.parse(fs.readFileSync(metaPath, "utf-8"));
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+function searchBoilerplates(
+  query: string
+): Array<{ name: string; description: string; tags: string[] }> {
+  const q = query.toLowerCase();
+  const boilerplates = getBoilerplates();
+  const results: Array<{ name: string; description: string; tags: string[] }> = [];
+
+  for (const bp of boilerplates) {
+    const meta = getBoilerplateMetadata(bp);
+    if (meta) {
+      const searchable = [meta.name, meta.description, ...meta.tags, ...meta.stack]
+        .join(" ")
+        .toLowerCase();
+      if (searchable.includes(q)) {
+        results.push({ name: bp, description: meta.description, tags: meta.tags });
+      }
+    } else {
+      let searchable = bp.toLowerCase();
+      const readmePath = path.join(BOILERPLATES_DIR, bp, "README.md");
+      if (fs.existsSync(readmePath)) {
+        const content = fs.readFileSync(readmePath, "utf-8").slice(0, 200);
+        searchable += " " + content.toLowerCase();
+      }
+      if (searchable.includes(q)) {
+        const firstLine = fs.existsSync(readmePath)
+          ? fs.readFileSync(readmePath, "utf-8").split("\n").find((l) => l.trim() && !l.startsWith("#"))?.trim() || bp
+          : bp;
+        results.push({ name: bp, description: firstLine, tags: [] });
+      }
+    }
+  }
+
+  return results;
+}
+
 function getBoilerplates(): string[] {
   return fs
     .readdirSync(BOILERPLATES_DIR)
@@ -105,6 +162,95 @@ describe("get_boilerplate", () => {
     const files = getBoilerplateFiles("react-native");
     const paths = Object.keys(files);
     expect(paths.some((p) => p.includes("/"))).toBe(true);
+  });
+});
+
+describe("search_boilerplates", () => {
+  it("returns matches for a known tag", () => {
+    const results = searchBoilerplates("saas");
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.some((r) => r.name === "saas-starter" || r.name === "nextjs-saas")).toBe(true);
+  });
+
+  it("returns matches for a stack keyword", () => {
+    const results = searchBoilerplates("prisma");
+    expect(results.length).toBeGreaterThan(0);
+    for (const r of results) {
+      expect(r.name).toBeTruthy();
+      expect(r.description).toBeTruthy();
+    }
+  });
+
+  it("returns empty array for non-matching query", () => {
+    const results = searchBoilerplates("zzz-nonexistent-xyz");
+    expect(results).toEqual([]);
+  });
+
+  it("is case-insensitive", () => {
+    const lower = searchBoilerplates("typescript");
+    const upper = searchBoilerplates("TypeScript");
+    expect(lower.length).toBe(upper.length);
+    expect(lower.map((r) => r.name).sort()).toEqual(upper.map((r) => r.name).sort());
+  });
+
+  it("matches against name and description fields", () => {
+    const results = searchBoilerplates("whatsapp");
+    expect(results.length).toBeGreaterThan(0);
+    expect(results[0].name).toBe("whatsapp-bot");
+    expect(results[0].tags.length).toBeGreaterThan(0);
+  });
+
+  it("returns description and tags in results", () => {
+    const results = searchBoilerplates("shopify");
+    expect(results.length).toBe(1);
+    expect(results[0].description).toBeTruthy();
+    expect(Array.isArray(results[0].tags)).toBe(true);
+  });
+});
+
+describe("boilerplate.json validation", () => {
+  const boilerplates = getBoilerplates();
+
+  it("every boilerplate has a boilerplate.json", () => {
+    for (const bp of boilerplates) {
+      const metaPath = path.join(BOILERPLATES_DIR, bp, "boilerplate.json");
+      expect(fs.existsSync(metaPath), `${bp} missing boilerplate.json`).toBe(true);
+    }
+  });
+
+  it("every boilerplate.json has required fields", () => {
+    for (const bp of boilerplates) {
+      const meta = getBoilerplateMetadata(bp);
+      expect(meta, `${bp} failed to parse`).not.toBeNull();
+      expect(meta!.name, `${bp} missing name`).toBeTruthy();
+      expect(meta!.description, `${bp} missing description`).toBeTruthy();
+      expect(meta!.version, `${bp} invalid version`).toMatch(/^\d+\.\d+\.\d+$/);
+      expect(Array.isArray(meta!.tags), `${bp} tags not array`).toBe(true);
+      expect(meta!.tags.length, `${bp} needs tags`).toBeGreaterThan(0);
+      expect(Array.isArray(meta!.stack), `${bp} stack not array`).toBe(true);
+      expect(meta!.stack.length, `${bp} needs stack`).toBeGreaterThan(0);
+      expect(meta!.author, `${bp} missing author`).toBeTruthy();
+    }
+  });
+
+  it("every boilerplate.json has a valid changelog", () => {
+    for (const bp of boilerplates) {
+      const meta = getBoilerplateMetadata(bp)!;
+      expect(Array.isArray(meta.changelog), `${bp} changelog not array`).toBe(true);
+      expect(meta.changelog.length, `${bp} needs changelog`).toBeGreaterThan(0);
+      for (const entry of meta.changelog) {
+        expect(entry.version).toMatch(/^\d+\.\d+\.\d+$/);
+        expect(entry.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+        expect(entry.notes).toBeTruthy();
+      }
+    }
+  });
+
+  it("metadata version matches latest changelog version", () => {
+    for (const bp of boilerplates) {
+      const meta = getBoilerplateMetadata(bp)!;
+      expect(meta.version, `${bp} version mismatch`).toBe(meta.changelog[0].version);
+    }
   });
 });
 

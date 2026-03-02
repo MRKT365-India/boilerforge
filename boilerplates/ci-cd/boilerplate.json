@@ -1,0 +1,11 @@
+{
+  "name": "CI/CD Workflows",
+  "description": "GitHub Actions CI/CD workflows for Node.js/TypeScript projects",
+  "version": "1.0.0",
+  "tags": ["ci-cd", "github-actions", "devops", "deployment", "nodejs"],
+  "stack": ["GitHub Actions", "Node.js", "TypeScript"],
+  "author": "CometForge",
+  "changelog": [
+    { "version": "1.0.0", "date": "2026-03-01", "notes": "Initial release" }
+  ]
+}

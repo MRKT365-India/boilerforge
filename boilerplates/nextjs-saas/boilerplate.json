@@ -1,0 +1,11 @@
+{
+  "name": "Next.js 14 SaaS Starter",
+  "description": "Production-ready Next.js 14 SaaS boilerplate with auth, Razorpay payments, and Prisma ORM",
+  "version": "1.0.0",
+  "tags": ["nextjs", "saas", "razorpay", "prisma", "nextauth", "tailwindcss"],
+  "stack": ["Next.js 14", "Prisma", "NextAuth.js", "Razorpay", "Resend", "Tailwind CSS", "TypeScript"],
+  "author": "CometForge",
+  "changelog": [
+    { "version": "1.0.0", "date": "2026-03-01", "notes": "Initial release" }
+  ]
+}

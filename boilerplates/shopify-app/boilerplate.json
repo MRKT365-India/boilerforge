@@ -1,0 +1,11 @@
+{
+  "name": "Shopify App Starter",
+  "description": "Production-ready Shopify app on Remix with OAuth, Prisma, webhooks, and Polaris UI",
+  "version": "1.0.0",
+  "tags": ["shopify", "remix", "polaris", "prisma", "ecommerce", "oauth"],
+  "stack": ["Remix", "Shopify App Remix", "Polaris", "Prisma", "PostgreSQL", "TypeScript"],
+  "author": "CometForge",
+  "changelog": [
+    { "version": "1.0.0", "date": "2026-03-01", "notes": "Initial release" }
+  ]
+}

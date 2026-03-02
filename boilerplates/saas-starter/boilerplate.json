@@ -1,0 +1,11 @@
+{
+  "name": "SaaS Starter",
+  "description": "Production-ready SaaS backend with auth, billing, and multi-tenancy",
+  "version": "1.0.0",
+  "tags": ["saas", "express", "prisma", "razorpay", "stripe", "multi-tenancy"],
+  "stack": ["Node.js", "Express", "Prisma", "PostgreSQL", "Razorpay", "Stripe", "Resend", "TypeScript"],
+  "author": "CometForge",
+  "changelog": [
+    { "version": "1.0.0", "date": "2026-03-01", "notes": "Initial release" }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "name": "React Native Starter",
+  "description": "Production-ready React Native app with auth, navigation, Razorpay payments, and push notifications",
+  "version": "1.0.0",
+  "tags": ["react-native", "mobile", "razorpay", "firebase", "zustand"],
+  "stack": ["React Native 0.74", "TypeScript", "React Navigation 6", "Zustand", "Razorpay", "Firebase"],
+  "author": "CometForge",
+  "changelog": [
+    { "version": "1.0.0", "date": "2026-03-01", "notes": "Initial release" }
+  ]
+}

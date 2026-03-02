@@ -1,0 +1,11 @@
+{
+  "name": "OpenClaw Agent",
+  "description": "Production-ready OpenClaw agent workspace starter with identity, memory, and tools",
+  "version": "1.0.0",
+  "tags": ["openclaw", "agent", "ai", "workspace", "persona"],
+  "stack": ["Markdown", "OpenClaw"],
+  "author": "CometForge",
+  "changelog": [
+    { "version": "1.0.0", "date": "2026-03-01", "notes": "Initial release" }
+  ]
+}

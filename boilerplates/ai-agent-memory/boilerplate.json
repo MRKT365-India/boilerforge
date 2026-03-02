@@ -1,0 +1,11 @@
+{
+  "name": "AI Agent Memory",
+  "description": "Production-ready AI agent with long-term memory using vector search",
+  "version": "1.0.0",
+  "tags": ["ai", "agent", "memory", "vector-search", "langchain"],
+  "stack": ["TypeScript", "Node.js", "pgvector", "ChromaDB", "OpenAI SDK"],
+  "author": "CometForge",
+  "changelog": [
+    { "version": "1.0.0", "date": "2026-03-01", "notes": "Initial release" }
+  ]
+}
