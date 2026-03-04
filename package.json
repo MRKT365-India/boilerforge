@@ -1,6 +1,6 @@
 {
   "name": "@cometforge/boilerforge",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "MCP-powered boilerplate registry for AI coding agents",
   "main": "dist/mcp-server/index.js",
   "bin": {
