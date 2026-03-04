@@ -32,8 +32,28 @@ function resolveBoilerplatesDir(): string {
 
 const BOILERPLATES_DIR = resolveBoilerplatesDir();
 
+
+function resolvePackageVersion(): string {
+  const candidates = [
+    path.resolve(__dirname, '../../package.json'),
+    path.resolve(__dirname, '../package.json'),
+    path.resolve(process.cwd(), 'package.json'),
+  ];
+  for (const candidate of candidates) {
+    try {
+      if (fs.existsSync(candidate)) {
+        const pkg = JSON.parse(fs.readFileSync(candidate, 'utf-8')) as { version?: string };
+        if (pkg.version) return pkg.version;
+      }
+    } catch {
+      // ignore and try next candidate
+    }
+  }
+  return '0.0.0';
+}
+
 const server = new Server(
-  { name: "boilerforge", version: "0.1.0" },
+  { name: "boilerforge", version: resolvePackageVersion() },
   { capabilities: { tools: {} } }
 );
 

@@ -1,7 +1,7 @@
 # boilerforge
 
 [![npm version](https://img.shields.io/npm/v/@cometforge/boilerforge.svg)](https://www.npmjs.com/package/@cometforge/boilerforge)
-[![license](https://img.shields.io/npm/l/@cometforge/boilerforge.svg)](https://github.com/mrkt365/boilerforge/blob/main/LICENSE)
+[![license](https://img.shields.io/npm/l/@cometforge/boilerforge.svg)](https://github.com/MRKT365-India/boilerforge/blob/main/LICENSE)
 
 > MCP-powered boilerplate registry for AI coding agents.
 
@@ -41,7 +41,7 @@ Add to your Claude Code MCP config (`~/.claude.json` or project `.mcp.json`):
   "mcpServers": {
     "boilerforge": {
       "command": "npx",
-      "args": ["@cometforge/boilerforge"]
+      "args": ["-y", "@cometforge/boilerforge"]
     }
   }
 }
@@ -49,6 +49,11 @@ Add to your Claude Code MCP config (`~/.claude.json` or project `.mcp.json`):
 
 Then in Claude Code:
 > "Scaffold a nextjs-saas project in ./my-app"
+
+**2-minute smoke test (recommended):**
+1. Ask: `List available boilerplates`
+2. Ask: `Scaffold openclaw-agent in ./test-agent`
+3. Confirm files appear in `./test-agent`
 
 ### Use with Cursor
 
@@ -62,6 +67,7 @@ Same config in your Cursor MCP settings (`~/.cursor/mcp.json`).
 |------|-------------|
 | `list_boilerplates` | List all available boilerplates with descriptions |
 | `get_boilerplate` | Get all files for a specific boilerplate |
+| `search_boilerplates` | Search boilerplates by name, tags, or stack |
 | `scaffold_project` | Scaffold a boilerplate into a target directory |
 
 ---
@@ -88,6 +94,6 @@ The bar is simple: it must be production-ready, not a toy.
 
 ## Built by CometForge
 
-boilerforge is a [CometForge](https://github.com/mrkt365) open source project.
+boilerforge is a [CometForge](https://github.com/MRKT365-India) open source project.
 
 MIT License — see [LICENSE](LICENSE) for details.
