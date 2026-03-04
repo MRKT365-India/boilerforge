@@ -1,7 +1,7 @@
 {
   "name": "@cometforge/boilerforge",
-  "version": "0.1.6",
-  "description": "MCP-powered boilerplate registry for AI coding agents",
+  "version": "0.1.7",
+  "description": "Doctor-first architecture health and governance CLI for AI-built projects",
   "main": "dist/mcp-server/index.js",
   "bin": {
     "boilerforge": "bin/boilerforge.js",
@@ -38,7 +38,11 @@
     "cursor",
     "scaffold",
     "starter",
-    "template"
+    "template",
+    "architecture",
+    "governance",
+    "healthcheck",
+    "doctor"
   ],
   "author": "mrkt365",
   "license": "MIT",
