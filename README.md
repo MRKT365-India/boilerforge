@@ -69,6 +69,34 @@ Same config in your Cursor MCP settings (`~/.cursor/mcp.json`).
 | `get_boilerplate` | Get all files for a specific boilerplate |
 | `search_boilerplates` | Search boilerplates by name, tags, or stack |
 | `scaffold_project` | Scaffold a boilerplate into a target directory |
+| `check_project_updates` | Check whether a scaffolded project has boilerplate updates available |
+
+---
+
+## Project lock & updates
+
+When `scaffold_project` runs, boilerforge now writes a `boilerforge.lock.json` file in the target project root.
+
+Lockfile shape:
+
+```json
+{
+  "boilerplate": "openclaw-agent",
+  "version": "1.2.0",
+  "scaffoldedAt": "2026-03-04T12:34:56.789Z",
+  "source": "@cometforge/boilerforge"
+}
+```
+
+Use `check_project_updates` with:
+
+```json
+{
+  "target": "./my-project"
+}
+```
+
+The tool reads `boilerforge.lock.json`, compares its version with the current `boilerplate.json` version in the registry, and returns an update status (`up-to-date`, `update-available`, etc.).
 
 ---
 

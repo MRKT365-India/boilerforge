@@ -31,6 +31,7 @@ function resolveBoilerplatesDir(): string {
 }
 
 const BOILERPLATES_DIR = resolveBoilerplatesDir();
+export const PROJECT_LOCK_FILENAME = "boilerforge.lock.json";
 
 
 function resolvePackageVersion(): string {
@@ -95,6 +96,28 @@ interface BoilerplateMetadata {
   changelog: Array<{ version: string; date: string; notes: string }>;
 }
 
+interface ProjectLock {
+  boilerplate: string;
+  version: string;
+  scaffoldedAt: string;
+  source: string;
+}
+
+interface ProjectUpdateStatus {
+  status:
+    | "up-to-date"
+    | "update-available"
+    | "ahead-of-registry"
+    | "lockfile-missing"
+    | "invalid-lockfile"
+    | "boilerplate-not-found";
+  lockfilePath: string;
+  boilerplate?: string;
+  lockedVersion?: string;
+  latestVersion?: string;
+  updateAvailable: boolean;
+}
+
 function getBoilerplateMetadata(bpName: string): BoilerplateMetadata | null {
   const metaPath = path.join(BOILERPLATES_DIR, bpName, "boilerplate.json");
   if (fs.existsSync(metaPath)) {
@@ -105,6 +128,121 @@ function getBoilerplateMetadata(bpName: string): BoilerplateMetadata | null {
     }
   }
   return null;
+}
+
+function parseSemver(version: string): [number, number, number] | null {
+  const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(version);
+  if (!match) return null;
+  return [Number(match[1]), Number(match[2]), Number(match[3])];
+}
+
+function compareSemver(a: string, b: string): number {
+  const aParsed = parseSemver(a);
+  const bParsed = parseSemver(b);
+  if (!aParsed || !bParsed) {
+    return a.localeCompare(b);
+  }
+  for (let i = 0; i < 3; i += 1) {
+    if (aParsed[i] > bParsed[i]) return 1;
+    if (aParsed[i] < bParsed[i]) return -1;
+  }
+  return 0;
+}
+
+function getBoilerplateVersionOrThrow(boilerplate: string): string {
+  const metadata = getBoilerplateMetadata(boilerplate);
+  if (!metadata?.version) {
+    throw new Error(`boilerplate.json missing or invalid for: ${boilerplate}`);
+  }
+  return metadata.version;
+}
+
+export function writeProjectLockFile(targetPath: string, boilerplate: string): ProjectLock {
+  const version = getBoilerplateVersionOrThrow(boilerplate);
+  const lock: ProjectLock = {
+    boilerplate,
+    version,
+    scaffoldedAt: new Date().toISOString(),
+    source: "@cometforge/boilerforge",
+  };
+  fs.writeFileSync(
+    path.join(targetPath, PROJECT_LOCK_FILENAME),
+    JSON.stringify(lock, null, 2) + "\n",
+    "utf-8"
+  );
+  return lock;
+}
+
+export function getProjectUpdateStatus(targetPath: string): ProjectUpdateStatus {
+  const lockfilePath = path.join(targetPath, PROJECT_LOCK_FILENAME);
+  if (!fs.existsSync(lockfilePath)) {
+    return {
+      status: "lockfile-missing",
+      lockfilePath,
+      updateAvailable: false,
+    };
+  }
+
+  let lock: ProjectLock;
+  try {
+    lock = JSON.parse(fs.readFileSync(lockfilePath, "utf-8")) as ProjectLock;
+  } catch {
+    return {
+      status: "invalid-lockfile",
+      lockfilePath,
+      updateAvailable: false,
+    };
+  }
+
+  if (!lock.boilerplate || !lock.version) {
+    return {
+      status: "invalid-lockfile",
+      lockfilePath,
+      updateAvailable: false,
+    };
+  }
+
+  const latest = getBoilerplateMetadata(lock.boilerplate);
+  if (!latest?.version) {
+    return {
+      status: "boilerplate-not-found",
+      lockfilePath,
+      boilerplate: lock.boilerplate,
+      lockedVersion: lock.version,
+      updateAvailable: false,
+    };
+  }
+
+  const comparison = compareSemver(lock.version, latest.version);
+  if (comparison < 0) {
+    return {
+      status: "update-available",
+      lockfilePath,
+      boilerplate: lock.boilerplate,
+      lockedVersion: lock.version,
+      latestVersion: latest.version,
+      updateAvailable: true,
+    };
+  }
+  if (comparison > 0) {
+    return {
+      status: "ahead-of-registry",
+      lockfilePath,
+      boilerplate: lock.boilerplate,
+      lockedVersion: lock.version,
+      latestVersion: latest.version,
+      updateAvailable: false,
+    };
+  }
+
+  return {
+    status: "up-to-date",
+    lockfilePath,
+    boilerplate: lock.boilerplate,
+    lockedVersion: lock.version,
+    latestVersion: latest.version,
+    updateAvailable: false,
+  };
 }
 
 function searchBoilerplates(
@@ -229,6 +367,20 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         required: ["boilerplate", "target"],
       },
     },
+    {
+      name: "check_project_updates",
+      description: "Check whether a scaffolded project has boilerplate updates available",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          target: {
+            type: "string" as const,
+            description: "Project root directory path containing boilerforge.lock.json",
+          },
+        },
+        required: ["target"],
+      },
+    },
   ],
 }));
 
@@ -338,13 +490,34 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         fs.mkdirSync(path.dirname(fullPath), { recursive: true });
         fs.writeFileSync(fullPath, content);
       }
+      const lock = writeProjectLockFile(targetPath, boilerplate);
       return {
         content: [
           {
             type: "text",
-            text: `Scaffolded ${Object.keys(files).length} files into ${targetPath}`,
+            text: `Scaffolded ${Object.keys(files).length} files into ${targetPath} and created ${PROJECT_LOCK_FILENAME} (${lock.version})`,
           },
         ],
+      };
+    }
+
+    if (name === "check_project_updates") {
+      const target = args?.target as string;
+      if (!target) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "Error: 'target' argument is required",
+            },
+          ],
+          isError: true,
+        };
+      }
+      const targetPath = path.resolve(target);
+      const status = getProjectUpdateStatus(targetPath);
+      return {
+        content: [{ type: "text", text: JSON.stringify(status, null, 2) }],
       };
     }
 
@@ -361,12 +534,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 });
 
-async function main() {
+export async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }
 
-main().catch((err) => {
-  console.error("Failed to start boilerforge MCP server:", err);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((err) => {
+    console.error("Failed to start boilerforge MCP server:", err);
+    process.exit(1);
+  });
+}

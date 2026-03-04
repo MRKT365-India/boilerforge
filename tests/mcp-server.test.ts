@@ -1,6 +1,11 @@
 import { describe, it, expect, afterAll } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
+import {
+  getProjectUpdateStatus,
+  PROJECT_LOCK_FILENAME,
+  writeProjectLockFile,
+} from "../mcp-server/index";
 
 const BOILERPLATES_DIR = path.resolve(__dirname, "../boilerplates");
 
@@ -271,9 +276,11 @@ describe("scaffold_project", () => {
       fs.mkdirSync(path.dirname(fullPath), { recursive: true });
       fs.writeFileSync(fullPath, content);
     }
+    writeProjectLockFile(targetPath, "openclaw-agent");
 
     expect(fs.existsSync(path.join(targetPath, "README.md"))).toBe(true);
     expect(fs.existsSync(path.join(targetPath, "SOUL.md"))).toBe(true);
+    expect(fs.existsSync(path.join(targetPath, PROJECT_LOCK_FILENAME))).toBe(true);
 
     // Cleanup
     fs.rmSync(tmpDir, { recursive: true });
@@ -288,6 +295,7 @@ describe("scaffold_project", () => {
       fs.mkdirSync(path.dirname(fullPath), { recursive: true });
       fs.writeFileSync(fullPath, content);
     }
+    writeProjectLockFile(targetPath, "openclaw-agent");
 
     const originalReadme = files["README.md"];
     const scaffoldedReadme = fs.readFileSync(
@@ -298,5 +306,92 @@ describe("scaffold_project", () => {
 
     // Cleanup
     fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it("writes a valid project lockfile", () => {
+    const targetPath = path.resolve(tmpDir);
+    fs.mkdirSync(targetPath, { recursive: true });
+    const lock = writeProjectLockFile(targetPath, "openclaw-agent");
+    const lockPath = path.join(targetPath, PROJECT_LOCK_FILENAME);
+
+    expect(fs.existsSync(lockPath)).toBe(true);
+    expect(lock.boilerplate).toBe("openclaw-agent");
+    expect(lock.version).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(lock.scaffoldedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(lock.source).toBe("@cometforge/boilerforge");
+
+    const parsed = JSON.parse(fs.readFileSync(lockPath, "utf-8")) as {
+      boilerplate: string;
+      version: string;
+      source: string;
+    };
+    expect(parsed.boilerplate).toBe("openclaw-agent");
+    expect(parsed.version).toBe(getBoilerplateMetadata("openclaw-agent")!.version);
+    expect(parsed.source).toBe("@cometforge/boilerforge");
+
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+});
+
+describe("check_project_updates", () => {
+  const updateTmpDir = path.resolve(__dirname, "../.test-update-check-output");
+
+  afterAll(() => {
+    if (fs.existsSync(updateTmpDir)) {
+      fs.rmSync(updateTmpDir, { recursive: true });
+    }
+  });
+
+  it("returns up-to-date when lockfile matches latest version", () => {
+    fs.mkdirSync(updateTmpDir, { recursive: true });
+    const lock = writeProjectLockFile(updateTmpDir, "openclaw-agent");
+
+    const status = getProjectUpdateStatus(updateTmpDir);
+    expect(status.status).toBe("up-to-date");
+    expect(status.boilerplate).toBe("openclaw-agent");
+    expect(status.lockedVersion).toBe(lock.version);
+    expect(status.latestVersion).toBe(lock.version);
+    expect(status.updateAvailable).toBe(false);
+
+    fs.rmSync(updateTmpDir, { recursive: true });
+  });
+
+  it("returns update-available when lockfile version is older", () => {
+    fs.mkdirSync(updateTmpDir, { recursive: true });
+    const lockPath = path.join(updateTmpDir, PROJECT_LOCK_FILENAME);
+    fs.writeFileSync(
+      lockPath,
+      JSON.stringify(
+        {
+          boilerplate: "openclaw-agent",
+          version: "0.0.1",
+          scaffoldedAt: "2026-01-01T00:00:00.000Z",
+          source: "@cometforge/boilerforge",
+        },
+        null,
+        2
+      ),
+      "utf-8"
+    );
+
+    const status = getProjectUpdateStatus(updateTmpDir);
+    expect(status.status).toBe("update-available");
+    expect(status.updateAvailable).toBe(true);
+    expect(status.latestVersion).toBe(getBoilerplateMetadata("openclaw-agent")!.version);
+
+    fs.rmSync(updateTmpDir, { recursive: true });
+  });
+
+  it("returns lockfile-missing when lockfile does not exist", () => {
+    if (fs.existsSync(updateTmpDir)) {
+      fs.rmSync(updateTmpDir, { recursive: true });
+    }
+    fs.mkdirSync(updateTmpDir, { recursive: true });
+
+    const status = getProjectUpdateStatus(updateTmpDir);
+    expect(status.status).toBe("lockfile-missing");
+    expect(status.updateAvailable).toBe(false);
+
+    fs.rmSync(updateTmpDir, { recursive: true });
   });
 });
