@@ -1,6 +1,6 @@
 {
   "name": "@cometforge/boilerforge",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Doctor-first architecture health and governance CLI for AI-built projects",
   "main": "dist/mcp-server/index.js",
   "bin": {

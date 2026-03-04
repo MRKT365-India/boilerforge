@@ -85,16 +85,16 @@ Upgrade project based on lockfile + local template version:
 
 ## Doctor Rule Engine (100 points)
 
-1. CI workflow exists
-2. Env schema validation present
-3. Typecheck script exists
-4. Test script + test files exist
-5. Lint configured
-6. Security headers configured (web stacks)
-7. Centralized logging present
-8. Observability hook present (Sentry/OpenTelemetry/etc)
-9. Dependency hygiene
-10. Docs baseline (README + setup)
+1. CI workflow exists — **12**
+2. Env schema validation present — **10**
+3. Typecheck script exists — **10**
+4. Test script + test files exist — **12**
+5. Lint configured — **10**
+6. Security headers configured (web stacks) — **10**
+7. Centralized logging present — **8**
+8. Observability hook present (Sentry/OpenTelemetry/etc) — **8**
+9. Dependency hygiene — **10**
+10. Docs baseline (README + setup) — **10**
 
 Outputs include:
 - score `/100`
@@ -155,8 +155,8 @@ Running the package without CLI args in non-interactive MCP context still starts
 
 GitHub Actions workflows included:
 
-- `ci.yml`: install, build, test, `doctor --ci --min-score 70`, CLI smoke checks, and npm package integrity (`npm pack`) verification.
-- `publish.yml`: release-driven publish pipeline (build + test + doctor gate + npm publish with provenance).
+- `ci.yml`: install, lint, typecheck, test, build, `doctor --ci --min-score 70`, CLI smoke checks, and npm package integrity (`npm pack`) verification.
+- `publish.yml`: release-driven publish pipeline (lint + typecheck + test + build + doctor gate + npm publish with provenance).
 
 Minimal CI snippet for your own repos:
 
