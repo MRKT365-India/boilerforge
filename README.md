@@ -151,6 +151,24 @@ Running the package without CLI args in non-interactive MCP context still starts
 
 ---
 
+## CI/CD
+
+GitHub Actions workflows included:
+
+- `ci.yml`: install, build, test, `doctor --ci --min-score 70`, CLI smoke checks, and npm package integrity (`npm pack`) verification.
+- `publish.yml`: release-driven publish pipeline (build + test + doctor gate + npm publish with provenance).
+
+Minimal CI snippet for your own repos:
+
+```yaml
+- name: Architecture gate
+  run: boilerforge doctor . --ci --min-score 70
+```
+
+`doctor --ci` exits non-zero when below threshold, so it can be used as a hard merge/release gate.
+
+---
+
 ## Development
 
 ```bash

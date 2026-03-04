@@ -1,0 +1,67 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-test-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+      - name: Doctor gate (CI mode)
+        run: node bin/boilerforge.js doctor . --ci --min-score 70
+
+      - name: CLI smoke checks
+        run: |
+          node bin/boilerforge.js analyze .
+          node bin/boilerforge.js validate . --json > /tmp/validate.json
+          test -s /tmp/validate.json
+
+      - name: Package integrity (npm pack)
+        run: |
+          npm pack --json > /tmp/pack.json
+          node -e '
+            const fs = require("fs");
+            const data = JSON.parse(fs.readFileSync("/tmp/pack.json", "utf8"));
+            const entry = data[0];
+            if (!entry || !entry.files) throw new Error("Missing npm pack metadata");
+            const names = new Set(entry.files.map((f) => f.path));
+            const required = [
+              "dist/mcp-server/index.js",
+              "dist/mcp-server/cli.js",
+              "bin/boilerforge.js",
+              "README.md",
+              "package.json"
+            ];
+            for (const req of required) {
+              if (!names.has(req)) {
+                throw new Error(`Package integrity failed: missing ${req}`);
+              }
+            }
+            console.log(`Tarball: ${entry.filename}, files: ${entry.files.length}`);
+          '

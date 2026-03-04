@@ -123,6 +123,15 @@ describe("validate and doctor scoring", () => {
 
     await expect(runCli(["doctor", root, "--ci", "--min-score", "90"])).rejects.toThrow("Doctor CI gate failed");
   });
+
+  it("doctor ci passes when threshold is met", async () => {
+    const root = mkTemp("boilerforge-doctor-ci-pass-");
+    setupNodeFixture(root);
+
+    await expect(runCli(["doctor", root, "--ci", "--min-score", "70"]))
+      .resolves
+      .toBeUndefined();
+  });
 });
 
 describe("extract/create/upgrade local registry", () => {
