@@ -8,3 +8,7 @@ dist/
 .claude-flow/
 .claude/
 .swarm/
+
+# Allow workflow-pack templates to include .claude assets
+!workflow-packs/**/.claude/
+!workflow-packs/**/.claude/**

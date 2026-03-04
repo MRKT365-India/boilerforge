@@ -1,20 +1,23 @@
 {
   "name": "@cometforge/boilerforge",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "MCP-powered boilerplate registry for AI coding agents",
   "main": "dist/mcp-server/index.js",
   "bin": {
-    "boilerforge": "dist/mcp-server/index.js"
+    "boilerforge": "bin/boilerforge.js",
+    "boilerforge-mcp": "dist/mcp-server/index.js"
   },
   "files": [
     "dist/",
     "boilerplates/",
     "scripts/",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "bin/",
+    "workflow-packs/"
   ],
   "scripts": {
-    "build": "tsc && chmod +x dist/mcp-server/index.js",
+    "build": "tsc && chmod +x dist/mcp-server/index.js dist/mcp-server/cli.js bin/boilerforge.js",
     "dev": "ts-node mcp-server/index.ts",
     "start": "node dist/mcp-server/index.js",
     "test": "vitest run",

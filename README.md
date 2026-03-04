@@ -61,6 +61,53 @@ Same config in your Cursor MCP settings (`~/.cursor/mcp.json`).
 
 ---
 
+## Lifecycle CLI (workflow packs)
+
+boilerforge now ships a lifecycle CLI for project workflow assets:
+
+```bash
+# scaffold a new Claude workflow project
+boilerforge init my-project --workflow=claude
+
+# check managed workflow status in current project
+boilerforge status
+
+# preview updates without changing files
+boilerforge update --dry-run
+
+# apply workflow pack updates
+boilerforge update
+
+# protect local customizations from managed updates
+boilerforge protect add commands implement
+boilerforge protect remove commands implement
+```
+
+Manifest file created in managed projects:
+
+```json
+{
+  "version": "0.1.6",
+  "workflow": "claude",
+  "protected": [],
+  "updatedAt": "2026-03-05T00:00:00.000Z"
+}
+```
+
+Managed update paths (workflow=claude):
+- `BOILERFORGE.md`
+- `.claude/commands`
+- `.claude/agents`
+- `.claude/skills`
+
+Protected categories:
+- `commands`
+- `agents`
+- `skills`
+- `BOILERFORGE.md`
+
+Backward compatibility: running `npx -y @cometforge/boilerforge@latest` with no args in non-interactive MCP context still starts the MCP server.
+
 ## MCP Tools
 
 | Tool | Description |
