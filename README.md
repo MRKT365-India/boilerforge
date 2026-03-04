@@ -3,7 +3,7 @@
 [![npm version](https://img.shields.io/npm/v/@cometforge/boilerforge.svg)](https://www.npmjs.com/package/@cometforge/boilerforge)
 [![license](https://img.shields.io/npm/l/@cometforge/boilerforge.svg)](https://github.com/MRKT365-India/boilerforge/blob/main/LICENSE)
 
-> Architecture health & governance CLI for AI-built projects.
+> Architecture governance wedge for AI-built codebases — doctor-first health checks and guardrails for production teams.
 
 Boilerforge is now **doctor-first**. Instead of starting from a boilerplate registry, you start by checking architecture quality:
 
