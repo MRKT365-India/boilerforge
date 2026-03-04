@@ -14,7 +14,7 @@ warn()  { echo -e "${YELLOW}[boilerforge]${NC} $*"; }
 
 MCP_ENTRY='{
   "command": "npx",
-  "args": ["-y", "@cometforge/boilerforge"],
+  "args": ["-y", "@cometforge/boilerforge@latest"],
   "type": "stdio"
 }'
 

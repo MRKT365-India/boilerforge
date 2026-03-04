@@ -41,7 +41,7 @@ Add to your Claude Code MCP config (`~/.claude.json` or project `.mcp.json`):
   "mcpServers": {
     "boilerforge": {
       "command": "npx",
-      "args": ["-y", "@cometforge/boilerforge"]
+      "args": ["-y", "@cometforge/boilerforge@latest"]
     }
   }
 }
