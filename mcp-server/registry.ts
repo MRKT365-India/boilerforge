@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
+import YAML from "yaml";
 export const PROJECT_LOCK_FILENAME = "boilerforge.lock.json";
 import { analyzeProject } from "./stack";
 
@@ -53,9 +54,11 @@ export interface UpgradeResult {
 }
 
 interface MigrationOperation {
-  type: "writeFile" | "appendFile" | "deleteFile";
+  type: "writeFile" | "appendFile" | "deleteFile" | "copyFromTemplate" | "patchJSON";
   path: string;
   content?: string;
+  from?: string;
+  patch?: unknown;
 }
 
 interface MigrationFile {
@@ -154,16 +157,68 @@ function serializeManifest(manifest: TemplateManifest): string {
   return JSON.stringify(manifest, null, 2) + "\n";
 }
 
-function parseManifest(content: string): TemplateManifest {
-  try {
-    const parsed = JSON.parse(content) as TemplateManifest;
-    if (!parsed.name || !parsed.version || !parsed.createdAt) {
-      throw new Error("Template manifest missing required fields.");
-    }
-    return parsed;
-  } catch {
-    throw new Error("Failed to parse template manifest. Expected JSON-compatible YAML.");
+function asNonEmptyString(value: unknown, field: string, manifestPath: string): string {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error(`Template manifest ${manifestPath} missing required string field '${field}'.`);
   }
+  return value.trim();
+}
+
+function parseManifest(content: string, manifestPath: string): TemplateManifest {
+  let raw: unknown;
+
+  try {
+    raw = JSON.parse(content);
+  } catch {
+    try {
+      const doc = YAML.parseDocument(content, { prettyErrors: false });
+      if (doc.errors.length > 0) {
+        const details = doc.errors.map((err) => err.message).join("; ");
+        throw new Error(details || "invalid YAML syntax");
+      }
+      raw = doc.toJS();
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `Failed to parse template manifest at ${manifestPath}. Expected valid YAML mapping with required fields name/version/createdAt. ${reason}`
+      );
+    }
+  }
+
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new Error(`Template manifest ${manifestPath} must be a YAML mapping/object.`);
+  }
+
+  const record = raw as Record<string, unknown>;
+  const name = asNonEmptyString(record.name, "name", manifestPath);
+  const version = asNonEmptyString(record.version, "version", manifestPath);
+  const createdAt = asNonEmptyString(record.createdAt, "createdAt", manifestPath);
+
+  if (!parseSemver(version)) {
+    throw new Error(`Template manifest ${manifestPath} has invalid version '${version}'. Expected semver like 1.0.0.`);
+  }
+
+  const parsedDate = Date.parse(createdAt);
+  if (Number.isNaN(parsedDate)) {
+    throw new Error(`Template manifest ${manifestPath} has invalid createdAt '${createdAt}'. Expected ISO date string.`);
+  }
+
+  let stack: string[] | undefined;
+  if (record.stack !== undefined) {
+    if (!Array.isArray(record.stack) || record.stack.some((entry) => typeof entry !== "string" || !entry.trim())) {
+      throw new Error(`Template manifest ${manifestPath} field 'stack' must be an array of non-empty strings.`);
+    }
+    stack = record.stack.map((entry) => String(entry).trim());
+  }
+
+  return {
+    name,
+    version,
+    createdAt,
+    description: typeof record.description === "string" ? record.description : undefined,
+    sourcePath: typeof record.sourcePath === "string" ? record.sourcePath : undefined,
+    stack,
+  };
 }
 
 export function extractTemplate(projectPath: string, providedName?: string): ExtractResult {
@@ -221,7 +276,7 @@ function loadTemplateManifest(templateName: string): { root: string; filesRoot: 
     throw new Error(`Template files directory missing: ${filesRoot}`);
   }
 
-  const manifest = parseManifest(fs.readFileSync(manifestPath, "utf-8"));
+  const manifest = parseManifest(fs.readFileSync(manifestPath, "utf-8"), manifestPath);
   return { root, filesRoot, migrationsRoot, manifest };
 }
 
@@ -336,14 +391,36 @@ function backupIfExists(projectRoot: string, relativePath: string): void {
   fs.copyFileSync(fullPath, backupPath);
 }
 
-function applyMigration(projectRoot: string, migration: MigrationFile): void {
-  for (const operation of migration.operations) {
-    const rel = operation.path;
-    if (!rel || rel.includes("..") || path.isAbsolute(rel)) {
-      throw new Error(`Invalid migration path: ${operation.path}`);
-    }
+function ensureSafeRelativePath(value: string, label: string): string {
+  if (!value || value.includes("..") || path.isAbsolute(value)) {
+    throw new Error(`Invalid ${label}: ${value}`);
+  }
+  return value;
+}
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function deepMergeJson(base: unknown, patch: unknown): unknown {
+  if (Array.isArray(patch)) return patch.slice();
+  if (!isPlainObject(patch)) return patch;
+  const output: Record<string, unknown> = isPlainObject(base) ? { ...base } : {};
+  for (const [key, value] of Object.entries(patch)) {
+    if (isPlainObject(value) && isPlainObject(output[key])) {
+      output[key] = deepMergeJson(output[key], value);
+    } else {
+      output[key] = deepMergeJson(undefined, value);
+    }
+  }
+  return output;
+}
+
+function applyMigration(projectRoot: string, templateFilesRoot: string, migration: MigrationFile): void {
+  for (const operation of migration.operations) {
+    const rel = ensureSafeRelativePath(operation.path, "migration path");
     const target = path.join(projectRoot, rel);
+
     if (operation.type === "writeFile") {
       backupIfExists(projectRoot, rel);
       ensureDirectory(path.dirname(target));
@@ -361,6 +438,41 @@ function applyMigration(projectRoot: string, migration: MigrationFile): void {
     if (operation.type === "deleteFile") {
       backupIfExists(projectRoot, rel);
       fs.rmSync(target, { force: true });
+      continue;
+    }
+
+    if (operation.type === "copyFromTemplate") {
+      if (typeof operation.from !== "string" || !operation.from.trim()) {
+        throw new Error(`Migration copyFromTemplate requires non-empty from path for ${rel}`);
+      }
+      const fromRel = ensureSafeRelativePath(operation.from, "template source path");
+      const source = path.join(templateFilesRoot, fromRel);
+      if (!fs.existsSync(source) || !fs.statSync(source).isFile()) {
+        throw new Error(`Migration copyFromTemplate source missing: ${fromRel}`);
+      }
+      backupIfExists(projectRoot, rel);
+      ensureDirectory(path.dirname(target));
+      fs.copyFileSync(source, target);
+      continue;
+    }
+
+    if (operation.type === "patchJSON") {
+      if (!isPlainObject(operation.patch)) {
+        throw new Error(`Migration patchJSON requires object patch payload for ${rel}`);
+      }
+      backupIfExists(projectRoot, rel);
+      let existing: unknown = {};
+      if (fs.existsSync(target)) {
+        try {
+          existing = JSON.parse(fs.readFileSync(target, "utf-8"));
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : String(error);
+          throw new Error(`Migration patchJSON target is not valid JSON at ${rel}: ${reason}`);
+        }
+      }
+      const merged = deepMergeJson(existing, operation.patch);
+      ensureDirectory(path.dirname(target));
+      fs.writeFileSync(target, JSON.stringify(merged, null, 2) + "\n", "utf-8");
       continue;
     }
 
@@ -383,7 +495,7 @@ function readMigration(filePath: string): MigrationFile {
 export function upgradeProjectFromTemplate(projectPath: string): UpgradeResult {
   const root = path.resolve(projectPath);
   const lock = parseLock(root);
-  const { manifest, migrationsRoot } = loadTemplateManifest(lock.template.name);
+  const { manifest, migrationsRoot, filesRoot } = loadTemplateManifest(lock.template.name);
 
   const fromVersion = lock.template.version;
   const toVersion = manifest.version;
@@ -408,7 +520,7 @@ export function upgradeProjectFromTemplate(projectPath: string): UpgradeResult {
     if (compareSemver(migration.to, toVersion) > 0) continue;
     if (migration.from !== currentVersion) continue;
 
-    applyMigration(root, migration);
+    applyMigration(root, filesRoot, migration);
     currentVersion = migration.to;
     migrationsApplied.push(`${migration.from}->${migration.to}`);
   }

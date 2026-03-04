@@ -121,7 +121,9 @@ describe("validate and doctor scoring", () => {
     const root = mkTemp("boilerforge-doctor-ci-");
     write(path.join(root, "package.json"), JSON.stringify({ name: "tiny" }, null, 2));
 
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
     await expect(runCli(["doctor", root, "--ci", "--min-score", "90"])).rejects.toThrow("Doctor CI gate failed");
+    expect(logSpy).toHaveBeenCalled();
   });
 
   it("doctor ci passes when threshold is met", async () => {
@@ -185,11 +187,19 @@ describe("extract/create/upgrade local registry", () => {
 
     const source = mkTemp("boilerforge-source-");
     setupNodeFixture(source);
+    write(path.join(source, "defaults/settings.json"), JSON.stringify({
+      base: true,
+      feature: { enabled: false, rollout: 0 },
+    }, null, 2));
     extractTemplate(source, templateName);
 
     const target = mkTemp("boilerforge-upgrade-target-");
     fs.rmSync(target, { recursive: true, force: true });
     createProjectFromTemplate(templateName, target);
+    write(path.join(target, "config/settings.json"), JSON.stringify({
+      existing: true,
+      feature: { enabled: false, previous: true },
+    }, null, 2));
 
     const registryTemplateRoot = path.join(LOCAL_REGISTRY_ROOT, templateName);
     const manifestPath = path.join(registryTemplateRoot, "template.yaml");
@@ -212,6 +222,19 @@ describe("extract/create/upgrade local registry", () => {
         to: "1.0.1",
         operations: [
           {
+            type: "copyFromTemplate",
+            from: "defaults/settings.json",
+            path: "config/settings.json",
+          },
+          {
+            type: "patchJSON",
+            path: "config/settings.json",
+            patch: {
+              feature: { enabled: true, rollout: 50 },
+              migrated: true,
+            },
+          },
+          {
             type: "writeFile",
             path: "MIGRATED.md",
             content: "migration ok\n",
@@ -226,12 +249,82 @@ describe("extract/create/upgrade local registry", () => {
     expect(result.migrationsApplied).toContain("1.0.0->1.0.1");
     expect(fs.existsSync(path.join(target, "MIGRATED.md"))).toBe(true);
 
+    const patched = JSON.parse(fs.readFileSync(path.join(target, "config/settings.json"), "utf-8")) as {
+      base: boolean;
+      feature: { enabled: boolean; rollout: number };
+      migrated: boolean;
+    };
+    expect(patched.base).toBe(true);
+    expect(patched.feature.enabled).toBe(true);
+    expect(patched.feature.rollout).toBe(50);
+    expect(patched.migrated).toBe(true);
+
     const lock = JSON.parse(fs.readFileSync(path.join(target, PROJECT_LOCK_FILENAME), "utf-8")) as {
       template: { version: string };
       version: string;
     };
     expect(compareSemver(lock.template.version, "1.0.1")).toBe(0);
     expect(compareSemver(lock.version, "1.0.1")).toBe(0);
+  });
+
+  it("create accepts strict YAML manifest and rejects invalid YAML clearly", () => {
+    const yamlTemplateName = `yaml-template-${Date.now()}`;
+    registryTemplatesToCleanup.push(yamlTemplateName);
+
+    const templateRoot = path.join(LOCAL_REGISTRY_ROOT, yamlTemplateName);
+    fs.mkdirSync(path.join(templateRoot, "files"), { recursive: true });
+    fs.writeFileSync(
+      path.join(templateRoot, "template.yaml"),
+      [
+        `name: ${yamlTemplateName}`,
+        "version: 1.2.3",
+        "createdAt: 2026-03-05T00:00:00.000Z",
+        "description: YAML template",
+        "stack:",
+        "  - node",
+      ].join("\n") + "\n",
+      "utf-8"
+    );
+    write(path.join(templateRoot, "files", "README.md"), "# yaml template\n");
+
+    const target = mkTemp("boilerforge-yaml-target-");
+    fs.rmSync(target, { recursive: true, force: true });
+    const created = createProjectFromTemplate(yamlTemplateName, target);
+    expect(created.version).toBe("1.2.3");
+    expect(fs.existsSync(path.join(target, "README.md"))).toBe(true);
+
+    const invalidTemplateName = `yaml-invalid-${Date.now()}`;
+    registryTemplatesToCleanup.push(invalidTemplateName);
+    const invalidRoot = path.join(LOCAL_REGISTRY_ROOT, invalidTemplateName);
+    fs.mkdirSync(path.join(invalidRoot, "files"), { recursive: true });
+    fs.writeFileSync(path.join(invalidRoot, "template.yaml"), "name: bad\nversion: [\n", "utf-8");
+    write(path.join(invalidRoot, "files", "README.md"), "# invalid\n");
+
+    const badTarget = mkTemp("boilerforge-yaml-invalid-target-");
+    fs.rmSync(badTarget, { recursive: true, force: true });
+    expect(() => createProjectFromTemplate(invalidTemplateName, badTarget)).toThrow(
+      /Failed to parse template manifest at .*Expected valid YAML mapping/
+    );
+
+    const missingFieldTemplateName = `yaml-missing-field-${Date.now()}`;
+    registryTemplatesToCleanup.push(missingFieldTemplateName);
+    const missingRoot = path.join(LOCAL_REGISTRY_ROOT, missingFieldTemplateName);
+    fs.mkdirSync(path.join(missingRoot, "files"), { recursive: true });
+    fs.writeFileSync(
+      path.join(missingRoot, "template.yaml"),
+      [
+        `name: ${missingFieldTemplateName}`,
+        "version: 1.0.0",
+      ].join("\n") + "\n",
+      "utf-8"
+    );
+    write(path.join(missingRoot, "files", "README.md"), "# missing\n");
+
+    const missingTarget = mkTemp("boilerforge-yaml-missing-target-");
+    fs.rmSync(missingTarget, { recursive: true, force: true });
+    expect(() => createProjectFromTemplate(missingFieldTemplateName, missingTarget)).toThrow(
+      /missing required string field 'createdAt'/
+    );
   });
 });
 

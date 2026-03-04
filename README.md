@@ -78,7 +78,7 @@ Scaffold a project from local registry template and write lockfile (`boilerforge
 ### `boilerforge upgrade [path]`
 Upgrade project based on lockfile + local template version:
 - compares locked template version vs latest local registry
-- applies migration hooks in order when present
+- applies migration hooks in order when present (`writeFile`, `appendFile`, `deleteFile`, `copyFromTemplate`, `patchJSON`)
 - writes updated lockfile
 
 ---
@@ -120,6 +120,8 @@ Template layout:
   files/
   migrations/   (optional)
 ```
+
+`template.yaml` accepts YAML (not just JSON), and is strictly validated for required fields (`name`, `version`, `createdAt`) with clear parse/validation errors.
 
 Lockfile (`boilerforge.lock.json`) stores template name/version/source for deterministic upgrades.
 

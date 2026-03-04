@@ -1,6 +1,6 @@
 {
   "name": "@cometforge/boilerforge",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Doctor-first architecture health and governance CLI for AI-built projects",
   "main": "dist/mcp-server/index.js",
   "bin": {
@@ -57,7 +57,8 @@
     "url": "https://github.com/MRKT365-India/boilerforge/issues"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0"
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "yaml": "^2.6.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
